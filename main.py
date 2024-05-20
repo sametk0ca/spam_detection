@@ -156,12 +156,19 @@ def main():
 
             for texts, labels in train_loader:
                 texts, labels = texts.to(device), labels.to(device)
-                
+
+                # Debug: print tensor shapes
                 print(f"Training batch: texts shape = {texts.shape}, labels shape = {labels.shape}")
+                
+                # Verify indices range
+                if torch.any(texts >= len(vocab) + 1):
+                    print(f"Index out of range error in batch: max index = {torch.max(texts)}, vocab size = {len(vocab) + 1}")
+                    continue
 
                 optimizer.zero_grad()
                 outputs = model(texts)
                 loss = criterion(outputs.squeeze(), labels)
+                criterion(outputs.squeeze(), labels)
                 loss.backward()
                 optimizer.step()
 
@@ -173,6 +180,7 @@ def main():
             train_loss_list.append(train_loss / total_train)
             train_acc_list.append(correct_train / total_train)
 
+            # Testing loop
             model.eval()
             correct_test = 0
             total_test = 0
@@ -181,7 +189,13 @@ def main():
                 for texts, labels in test_loader:
                     texts, labels = texts.to(device), labels.to(device)
 
+                    # Debug: print tensor shapes
                     print(f"Testing batch: texts shape = {texts.shape}, labels shape = {labels.shape}")
+
+                    # Verify indices range
+                    if torch.any(texts >= len(vocab) + 1):
+                        print(f"Index out of range error in batch: max index = {torch.max(texts)}, vocab size = {len(vocab) + 1}")
+                        continue
 
                     outputs = model(texts)
                     predicted = torch.round(outputs.squeeze())
@@ -192,7 +206,7 @@ def main():
 
             print(f"Epoch {epoch+1}/{NUM_EPOCHS}, Train Loss: {train_loss_list[-1]:.4f}, Train Acc: {train_acc_list[-1]:.4f}, Test Acc: {test_acc_list[-1]:.4f}")
 
-        # Plotting results
+        # Plotting
         plt.plot(train_loss_list, label="Train Loss")
         plt.xlabel("Epochs")
         plt.ylabel("Loss")
@@ -213,7 +227,7 @@ def main():
         y_pred = []
         with torch.no_grad():
             for texts, labels in test_loader:
-                texts = texts.to(device)
+                texts, labels = texts.to(device), labels.to(device)
                 outputs = model(texts)
                 predicted = torch.round(outputs.squeeze()).tolist()
                 y_pred.extend(predicted)
@@ -222,6 +236,7 @@ def main():
         print("Confusion Matrix:")
         print(cm)
     else:
+        # Testing without training
         model.eval()
         correct_test = 0
         total_test = 0
