@@ -17,7 +17,7 @@ from torch.utils.data import Dataset, DataLoader
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 # Veri setinin bulunduğu klasör
-DATA_DIR = "C:\\code\\ai\\spam\\enron"
+DATA_DIR = ""
 
 # LSTM modelinin parametreleri
 EMBEDDING_DIM = 30
