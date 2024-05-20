@@ -42,42 +42,49 @@ def read_text_files(directory):
     return texts
 
 def preprocess_text(texts):
-    # Lowercase conversion
-    texts = [(text.lower(), label) for text, label in texts]
-    # Remove punctuation and special characters
-    texts = [(re.sub(r'[^\w\s]', '', text), label) for text, label in texts]
-    # Remove stopwords
+    print("Preprocessing texts...")
     stop_words = set(stopwords.words('english'))
-    texts = [(' '.join([word for word in word_tokenize(text) if word not in stop_words]), label) for text, label in texts]
-    # Remove URLs
-    texts = [(re.sub(r'http\S+|www\S+|https\S+', '', text), label) for text, label in texts]
-    # Remove HTML tags
-    texts = [(re.sub(r'<.*?>', '', text), label) for text, label in texts]
-    # Tokenize
-    texts = [(word_tokenize(text), label) for text, label in texts]
-    return texts
+    preprocessed_texts = []
+    
+    for text, label in texts:
+        text = text.lower()  # Lowercase conversion
+        text = re.sub(r'[^\w\s]', '', text)  # Remove punctuation and special characters
+        text = ' '.join([word for word in word_tokenize(text) if word not in stop_words])  # Remove stopwords
+        text = re.sub(r'http\S+|www\S+|https\S+', '', text)  # Remove URLs
+        text = re.sub(r'<.*?>', '', text)  # Remove HTML tags
+        tokens = word_tokenize(text)  # Tokenize
+        preprocessed_texts.append((tokens, label))
+    
+    print(f"First preprocessed text sample: {preprocessed_texts[0]}")
+    return preprocessed_texts
 
 def text_to_sequence(texts):
+    print("Converting texts to sequences...")
     vocab = set()
     for text, _ in texts:
         vocab.update(text)
     word_to_index = {word: idx + 1 for idx, word in enumerate(vocab)}
     sequences = [([word_to_index[word] for word in text], label) for text, label in texts]
+    print(f"Vocabulary size: {len(vocab)}")
+    print(f"First sequence sample: {sequences[0]}")
     return sequences, word_to_index
 
 def load_data(data_dir):
+    print(f"Loading data from directory: {data_dir}")
     data = []
     for enron_folder in os.listdir(data_dir):
         enron_path = os.path.join(data_dir, enron_folder)
         if os.path.isdir(enron_path):
             data.extend(read_text_files(enron_path))
     texts, labels = zip(*data)
+    print(f"Number of texts loaded: {len(texts)}")
     return list(texts), list(labels)
 
 class TextDataset(Dataset):
     def __init__(self, texts, labels, max_length):
         self.texts = [self.pad_sequence(text, max_length) for text in texts]
         self.labels = labels
+        print(f"Dataset created with {len(self.texts)} samples.")
 
     def __len__(self):
         return len(self.texts)
@@ -94,7 +101,7 @@ class LSTMModel(nn.Module):
     def __init__(self, embedding_dim, hidden_dim, output_dim, vocab_size):
         super(LSTMModel, self).__init__()
         self.embedding = nn.Embedding(num_embeddings=vocab_size, embedding_dim=embedding_dim)
-        self.lstm = nn.LSTM(embedding_dim, hidden_dim)
+        self.lstm = nn.LSTM(embedding_dim, hidden_dim, batch_first=True)
         self.fc = nn.Linear(hidden_dim, output_dim)
         self.sigmoid = nn.Sigmoid()
 
@@ -120,6 +127,7 @@ def main():
 
     # Split data into train and test sets
     X_train, X_test, y_train, y_test = train_test_split([seq for seq, label in sequences], [label for seq, label in sequences], test_size=0.2, stratify=labels, random_state=42)
+    print(f"Training set size: {len(X_train)}, Test set size: {len(X_test)}")
 
     # Create Dataset and DataLoader
     max_length = max(len(seq) for seq in X_train) + 10
@@ -148,6 +156,9 @@ def main():
 
             for texts, labels in train_loader:
                 texts, labels = texts.to(device), labels.to(device)
+                
+                print(f"Training batch: texts shape = {texts.shape}, labels shape = {labels.shape}")
+
                 optimizer.zero_grad()
                 outputs = model(texts)
                 loss = criterion(outputs.squeeze(), labels)
@@ -169,6 +180,9 @@ def main():
             with torch.no_grad():
                 for texts, labels in test_loader:
                     texts, labels = texts.to(device), labels.to(device)
+
+                    print(f"Testing batch: texts shape = {texts.shape}, labels shape = {labels.shape}")
+
                     outputs = model(texts)
                     predicted = torch.round(outputs.squeeze())
                     correct_test += (predicted == labels).sum().item()
@@ -208,7 +222,6 @@ def main():
         print("Confusion Matrix:")
         print(cm)
     else:
-        # Evaluation only
         model.eval()
         correct_test = 0
         total_test = 0
